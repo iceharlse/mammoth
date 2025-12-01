@@ -134,6 +134,24 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         dataset: the continual dataset at hand
         args: the arguments of the current execution
     """
+    # =========================================================
+    # [修正 1] 在训练一开始就确定好 Log 文件名，确保全过程唯一
+    # =========================================================
+    import datetime
+    # 获取当前时间
+    start_time = datetime.datetime.now().strftime('%m%d_%H%M')
+    
+    # 处理 notes (把空格换成下划线，防止文件名非法)
+    note_str = ""
+    if hasattr(args, 'notes') and args.notes:
+        note_str = "_" + args.notes.replace(" ", "_")
+    
+    # 生成唯一文件名，例如: logs_dam_paretocl_v1_exp1_bs32_1122_1630.txt
+    # 这个变量 my_log_file_path 在整个 train 函数内都有效
+    my_log_file_path = f"logs_{args.model}{note_str}_{start_time}.txt"
+    # =========================================================
+
+
     logging.info(f"Current working directory: {os.getcwd()}.")
     logging.info(f"Main process PID: {os.getpid()}")
 
@@ -305,6 +323,27 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.meta_end_task(dataset)
 
             accs = eval_dataset.evaluate(model, eval_dataset)
+
+            # ==========================================
+            # [修正 2] 写入同一个文件
+            # ==========================================
+            
+            # 计算当前均值
+            mean_acc_class = np.mean(accs[0])
+            
+            # 准备内容
+            # 注意：这里重新获取 now() 只是为了记录这一行写入的时间，不影响文件名
+            now_str = datetime.datetime.now().strftime("%H:%M:%S")
+            log_line = (f"[{now_str}] Task {cur_task + 1}/{dataset.N_TASKS} | "
+                        f"Avg Acc: {mean_acc_class:.2f}% | "
+                        f"Class-IL: {accs[0]}\n")
+            
+            # 使用函数开头定义好的 my_log_file_path
+            with open(my_log_file_path, "a") as f:
+                f.write(log_line)
+                
+            print(f"--> [Log] Result appended to: {my_log_file_path}")
+            # ==========================================
 
             if args.eval_future and cur_task < dataset.N_TASKS - 1:
                 transf_accs = accs[0][cur_task + 1:], accs[1][cur_task + 1:]
