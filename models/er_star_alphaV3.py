@@ -81,6 +81,12 @@ class ERSTARAlphaV3(ContinualModel):
         parser.add_argument("--meta_lr", type=float, default=1e-3)
         parser.add_argument("--meta_interval", type=int, default=50)
         parser.add_argument("--meta_grad_balance_coef", type=float, default=0.5)
+        parser.add_argument(
+            "--alpha_save_path",
+            type=str,
+            default=None,
+            help="If set, save controller.state_dict() to this path at each end_task."
+        )
         return parser
 
     def __init__(self, backbone, loss, args, transform, dataset=None):
@@ -163,10 +169,11 @@ class ERSTARAlphaV3(ContinualModel):
         return ctx_vec, mu_new, mu_old, norm_old, norm_new
 
     def end_task(self, dataset):
+        # print and log average weights per task
         if self.log_steps > 0:
             avg_old = self.log_w_old_sum / self.log_steps
             avg_new = self.log_w_new_sum / self.log_steps
-            msg = (f"\n[STAR+AlphaV3] Task {self.current_task_id + 1} | "
+            msg = (f"\n[Meta-Alpha] Task {self.current_task_id + 1} | "
                    f"Avg w_old: {avg_old:.4f} | Avg w_new: {avg_new:.4f}")
             print(msg)
             try:
@@ -174,11 +181,23 @@ class ERSTARAlphaV3(ContinualModel):
                     f.write(msg + "\n")
             except Exception:
                 pass
+
+        # 新增：按需保存 controller
+        save_path = getattr(self.args, "alpha_save_path", None)
+        if save_path is not None:
+            try:
+                torch.save(self.controller.state_dict(), save_path)
+                print(f"[Meta-Alpha] Saved controller to {save_path}")
+            except Exception as e:
+                print(f"[Meta-Alpha] Failed to save controller: {e}")
+
         self.log_steps = 0
         self.log_w_old_sum = 0.0
         self.log_w_new_sum = 0.0
+
         self.current_task_id += 1
         super().end_task(dataset)
+
 
     # ========================================================================
     # 核心融合逻辑: Observe
