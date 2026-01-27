@@ -1,0 +1,11 @@
+{
+  "model": "er_star_log",
+  "train_time_total_sec": 1361.9324443656951,
+  "avg_step_time_sec": 0.08619825597251235,
+  "steps_timed": 15800,
+  "peak_mem_allocated_gb": 1.5137686729431152,
+  "peak_mem_reserved_gb": 2.015625,
+  "params_total": 11173962,
+  "params_backbone": 11173962,
+  "params_extra": 0
+}
